@@ -112,6 +112,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * Base of synchronization control for this lock. Subclassed
      * into fair and nonfair versions below. Uses AQS state to
      * represent the number of holds on the lock.
+     *
      */
     abstract static class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = -5179523762034025860L;
@@ -129,16 +130,18 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         final boolean nonfairTryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
             int c = getState();
-            if (c == 0) {
-                if (compareAndSetState(0, acquires)) {
-                    setExclusiveOwnerThread(current);
+            if (c == 0) { // state  为0，只有为0的时候  锁没有被别人持有
+                if (compareAndSetState(0, acquires)) { // state cas  期望0，acquires 新的值
+                    //AbstractQueuedSynchronizer 继承了AbstractOwnableSynchronizer
+                    setExclusiveOwnerThread(current);//记住当前线程
                     return true;
                 }
             }
-            else if (current == getExclusiveOwnerThread()) {
+            else if (current == getExclusiveOwnerThread()) {  //state 不为0，但是持有锁的线程  是同一个
                 int nextc = c + acquires;
                 if (nextc < 0) // overflow
                     throw new Error("Maximum lock count exceeded");
+                //当前锁对象下 同时只会有一个线程去setState，因为只有getExclusiveOwnerThread线程能够执行
                 setState(nextc);
                 return true;
             }
@@ -154,6 +157,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
                 free = true;
                 setExclusiveOwnerThread(null);
             }
+            /*
+            最后执行setState(c);   执行完后state对其他线程可见，因此先保证 操作完成再去修改
+             */
             setState(c);
             return free;
         }
@@ -199,14 +205,17 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         private static final long serialVersionUID = 7316153563782823691L;
 
         /**
+         * 非公平锁存在  非公平的可能
          * Performs lock.  Try immediate barge, backing up to normal
          * acquire on failure.
+         * 非公平锁  lock方法发现有锁就使用
          */
         final void lock() {
+            // 可能直接获取
             if (compareAndSetState(0, 1))
                 setExclusiveOwnerThread(Thread.currentThread());
             else
-                acquire(1);
+                acquire(1); // 直接获取不到的话  调用acquire去获取
         }
 
         protected final boolean tryAcquire(int acquires) {
@@ -220,7 +229,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     static final class FairSync extends Sync {
         private static final long serialVersionUID = -3000897897090466540L;
 
+        // 调用此方法一定是公平的。  trylock可能会直接获取锁
         final void lock() {
+            //acquire 时  会调用tryAcquire
             acquire(1);
         }
 
@@ -232,12 +243,13 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             final Thread current = Thread.currentThread();
             int c = getState();
             if (c == 0) {
-                if (!hasQueuedPredecessors() &&
+                if (!hasQueuedPredecessors() &&   //hasQueuedPredecessors  公平的实现
                     compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
                     return true;
                 }
             }
+            //这里就是可重入的实现
             else if (current == getExclusiveOwnerThread()) {
                 int nextc = c + acquires;
                 if (nextc < 0)
@@ -360,6 +372,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * @return {@code true} if the lock was free and was acquired by the
      *         current thread, or the lock was already held by the current
      *         thread; and {@code false} otherwise
+     * 直接试图去获取锁。
      */
     public boolean tryLock() {
         return sync.nonfairTryAcquire(1);

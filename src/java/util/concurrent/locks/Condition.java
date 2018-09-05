@@ -451,7 +451,7 @@ public interface Condition {
 
     /**
      * Wakes up one waiting thread.
-     *
+     * 需要重新去获取锁
      * <p>If any threads are waiting on this condition then one
      * is selected for waking up. That thread must then re-acquire the
      * lock before returning from {@code await}.
@@ -469,7 +469,7 @@ public interface Condition {
 
     /**
      * Wakes up all waiting threads.
-     *
+     *  需要重新去获取锁
      * <p>If any threads are waiting on this condition then they are
      * all woken up. Each thread must re-acquire the lock before it can
      * return from {@code await}.

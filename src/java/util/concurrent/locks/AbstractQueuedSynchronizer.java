@@ -289,7 +289,14 @@ import sun.misc.Unsafe;
  *
  * park 和unpark是底层实现的线程阻塞，进入waiting状态
  *
- * 而锁是这里实现的，核心就是state变量，通过对变量的状态进行cas修改，来实现准入
+ *
+ * aqs  实现了线程的park和unpark，调用未实现的tryAcquire方法，并提供了双向队列
+ * 自旋组合和释放机制
+ *
+ * 提供了操作同步状态变量state的cas方法。
+ *
+ * 而锁是子类中实现的，核心实现tryAcquire方法，这个方法返回true才是真正的获取到锁
+ *
  *
  */
 public abstract class AbstractQueuedSynchronizer
@@ -1298,6 +1305,7 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final boolean release(int arg) {
         //它是根据tryRelease()的返回值来判断该线程是否已经完成释放掉资源了！所以自定义同步器在设计tryRelease()的时候要明确这一点！
+        // tryRelease 去操作state
         if (tryRelease(arg)) {
             Node h = head;
             if (h != null && h.waitStatus != 0)
